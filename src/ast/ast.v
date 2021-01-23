@@ -257,11 +257,11 @@ enum BinaryOperator {
 	ge // <=
 	lt // >
 	le // >=
-	lsh // <<
-	rsh // >>
-	ursh // >>>
-	plus // +
-	minus // -
+	shl // <<
+	sar // >>
+	shr // >>>
+	add // +
+	sub // -
 	mul // *
 	div // /
 	mod // %
@@ -282,14 +282,14 @@ type AssignmentLeft = Pattern | Expression
 
 enum AssignmentOperator {
 	assign // =
-	plus // +=
-	minus // -=
+	add // +=
+	sub // -=
 	mul // *=
 	div // /=
 	mod // %=
-	lsh // <<=
-	rsh // >>=
-	ursh // >>>=
+	shl // <<=
+	sar // >>=
+	shr // >>>=
 	bor // |=
 	bxor // ^=
 	band // &=
