@@ -1,12 +1,12 @@
 module token
 
-type TokenKind = Identifier | Keyword | f64 | string | RegExp | NewLine | EOF
+pub type TokenKind = Identifier | Keyword | f64 | string | RegExp | EOF
 
-struct Identifier {
+pub struct Identifier {
 	name string
 }
 
-enum Keyword {
+pub enum Keyword {
 	// Operators
 	lor
 	land
@@ -94,7 +94,7 @@ enum Keyword {
 	key_false
 }
 
-const KeywordToStr = [
+const keyword_to_str = [
 	//	// Operators
 	'||',//	lor
 	'&&',//	land
@@ -182,24 +182,69 @@ const KeywordToStr = [
 	'false',//	fals
 ]
 
-struct RegExp {
+pub struct RegExp {
 	pattern string
 	flags string
 }
 
-struct NewLine {}
+pub struct EOF {}
 
-struct EOF {}
-
-struct Token {
+pub struct Token {
 	position SourceLocation
 	kind TokenKind
 }
 
-const KeywordToEnum = (fn(){
+const keyword_to_enum = (fn()map[string]Keyword{
 	mut enumap := map[string]Keyword
-	for i, key in KeywordToStr {
+	for i, key in keyword_to_str {
 		enumap[key] = Keyword(i)
 	}
 	return enumap
-})()
+}())
+
+const keyword_list_word = (fn()[]string{
+	return keyword_to_str.filter(it[0].is_letter())
+}())
+
+const keyword_list_sign = (fn()[]string{
+	return keyword_to_str.filter(!it[0].is_letter())
+}())
+
+const keyword_list_1 = (fn()[]string{
+	return keyword_list_sign.filter(it.len == 1)
+}())
+
+const keyword_list_2 = (fn()[]string{
+	return keyword_list_sign.filter(it.len == 2)
+}())
+
+const keyword_list_3 = (fn()[]string{
+	return keyword_list_sign.filter(it.len == 3)
+}())
+
+pub fn get_priority(key Keyword) ?int {
+	priority := match key {
+		.lor {4}
+		.land {5}
+		.bor {6}
+		.bxor {7}
+		.band {8}
+		.shl, .sar, .shr {11}
+		.mul, .div, .mod {13}
+		.add, .sub {12}
+		.assign, .assign_bor, .assign_bxor, .assign_band,
+		.assign_shl, .assign_sar, .assign_shr,
+		.assign_mul, .assign_div, .assign_mod,
+		.assign_add, .assign_sub {2}
+		.comma {1}
+		.cond {3}
+		.eq, .teq, .ne, .tne {9}
+		.lt, .gt, .lte, .gte, .insof, .inn {10}
+		else {0}
+	}
+	if priority == 0 {
+		return none
+	} else {
+		return priority
+	}
+}
