@@ -1,5 +1,7 @@
 module token
 
+import strconv
+
 pub struct Scanner {
 	buffer []Token
 	file_name ?string
@@ -22,6 +24,7 @@ const (
 	invalid_hexadecimal = 'Invalid hexadecimal escape sequence'
 	invalid_unicode = 'Invalid Unicode escape sequence'
 	strict_octal = 'Octal escape sequences are not allowed in strict mode.'
+	octal_not_allowed = 'Octal literals are not allowed in strict mode.'
 )
 
 [inline]
@@ -142,7 +145,7 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 					if esc := s.try_take(1) {
 						if is_terminator(esc) {
 							was_term := s.prev_term
-							skip_terminator()
+							s.skip_terminator()
 							s.prev_term = was_term
 						} else if esc[0].is_oct_digit() {
 							if s.is_strict && esc != '0' {
@@ -166,11 +169,11 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 							}
 						} else if esc == 'u' {
 							s.add_pos(1)
-							if hex_first := try_take(1) {
+							if hex_first := s.try_take(1) {
 								if hex_first == '{' {
 									mut has_hex := false
 									for {
-										if hex := try_take(1) {
+										if hex := s.try_take(1) {
 											if hex == '}' {
 												if !has_hex {
 													return error(invalid_unicode)
@@ -188,7 +191,7 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 										}
 									}
 								} else {
-									if hex := try_take(4) {
+									if hex := s.try_take(4) {
 										if !hex[0].is_hex_digit() || !hex[1].is_hex_digit()
 										|| !hex[2].is_hex_digit() || !hex[3].is_hex_digit() {
 											return error(invalid_unicode)
@@ -201,7 +204,7 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 							}
 						} else if esc == 'x' {
 							s.add_pos(1)
-							if hex := try_take(2) {
+							if hex := s.try_take(2) {
 								if !hex[0].is_hex_digit() || !hex[1].is_hex_digit() {
 									return error(invalid_hexadecimal)
 								}
@@ -230,13 +233,150 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 	return error(unexpected_token)
 }
 
-fn (mut s Scanner) scan_digit() ?Token { return none }
+// TODO do not allow 1hoge
+fn (mut s Scanner) scan_digit() ?Token {
+	start_pos := s.pos
+	start_lpos := s.get_position()
+	mut ret_num := f64(0)
+	if s.text.at(s.pos) == '0' {
+		s.add_pos(1)
+		if ss := s.try_take(1) {
+			match ss {
+				'x', 'X' {
+					s.add_pos(1)
+					mut had_number := false
+					for {
+						if follow := s.try_take(1) {
+							if !follow[0].is_hex_digit() {
+								break
+							}
+							s.add_pos(1)
+							had_number = true
+						} else {
+							break
+						}
+					}
+					if !had_number {
+						return error(unexpected_token)
+					}
+					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 16, 0))
+					goto finally
+				}
+				'o', 'O' {
+					s.add_pos(1)
+					mut had_number := false
+					for {
+						if follow := s.try_take(1) {
+							if !follow[0].is_oct_digit() {
+								break
+							}
+							s.add_pos(1)
+							had_number = true
+						} else {
+							break
+						}
+					}
+					if !had_number {
+						return error(unexpected_token)
+					}
+					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 8, 0))
+					goto finally
+				}
+				'b', 'B' {
+					s.add_pos(1)
+					mut had_number := false
+					for {
+						if follow := s.try_take(1) {
+							if follow !in ['0', '1'] {
+								break
+							}
+							s.add_pos(1)
+							had_number = true
+						} else {
+							break
+						}
+					}
+					if !had_number {
+						return error(unexpected_token)
+					}
+					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 2, 0))
+					goto finally
+				}
+				else {}
+			}
+		}
+	}
+	for {
+		if ss := s.try_take(1) {
+			if !ss[0].is_digit() {
+				break
+			}
+			s.add_pos(1)
+		} else {
+			break
+		}
+	}
+	num_base := s.text.substr(start_pos, s.pos)
+	if num_base.len != 0 && num_base[0] == `0` && !num_base.contains_any('89') {
+		if num_base != '0' && s.is_strict {
+			return error(octal_not_allowed)
+		}
+		ret_num = f64(strconv.parse_int(s.text.substr(start_pos, s.pos), 8, 0))
+		goto finally
+	}
+	if ss := s.try_take(1) {
+		if ss == '.' {
+			s.add_pos(1)
+			for {
+				if follow := s.try_take(1) {
+					if !follow[0].is_digit() {
+						break
+					}
+					s.add_pos(1)
+				} else {
+					break
+				}
+			}
+		}
+	}
+	if ss := s.try_take(1) {
+		if ss == 'e' {
+			s.add_pos(1)
+			if prefix := s.try_take(1) {
+				if prefix in ['+', '-'] {
+					s.add_pos(1)
+				}
+			}
+			mut had_number := false
+			for {
+				if follow := s.try_take(1) {
+					if !follow[0].is_digit() {
+						break
+					}
+					s.add_pos(1)
+					had_number = true
+				} else {
+					break
+				}
+			}
+			if !had_number {
+				return error(unexpected_token)
+			}
+		}
+	}
+	ret_num = s.text.substr(start_pos, s.pos).f64()
+	finally: return Token{
+		kind: ret_num,
+		position: s.get_location(start_lpos, s.get_position())
+	}
+}
 
+// TODO escape sequence
 fn (mut s Scanner) scan_ident() ?Token {
 	start_pos := s.pos
 	start_lpos := s.get_position()
 	for {
-		if id := try_take(1) {
+		if id := s.try_take(1) {
 			if !is_id_continue(id) {
 				return Token{
 					kind: Identifier{name: s.text.substr(start_pos, s.pos)},
@@ -251,6 +391,7 @@ fn (mut s Scanner) scan_ident() ?Token {
 			}
 		}
 	}
+	return error(unexpected_token)
 }
 
 pub fn (mut s Scanner) scan_once() ?Token {
@@ -303,6 +444,15 @@ pub fn (mut s Scanner) scan_once() ?Token {
 			}
 		} else {
 			// RegExp
+			// TODO
+		}
+	}
+	// Float like .1
+	if s.text.at(s.pos) == '.' {
+		if ss := s.try_take(2) {
+			if ss[1].is_digit() {
+				return s.scan_digit()
+			}
 		}
 	}
 	// Puncts
