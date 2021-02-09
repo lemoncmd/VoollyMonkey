@@ -119,11 +119,11 @@ fn (mut s Scanner) skip_comment() ?bool {
 	return false
 }
 
-fn (mut s Scanner) scan_string() ?Token {}
+fn (mut s Scanner) scan_string() ?Token { return none }
 
-fn (mut s Scanner) scan_digit() ?Token {}
+fn (mut s Scanner) scan_digit() ?Token { return none }
 
-fn (mut s Scanner) scan_ident() ?Token {}
+fn (mut s Scanner) scan_ident() ?Token { return none }
 
 pub fn (mut s Scanner) scan_once() ?Token {
 	// skip ws and term and comment
@@ -159,7 +159,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 	if s.text.at(s.pos) == '/' {
 		if s.context == .div {
 			start := s.get_position()
-			if ss := try_take(2) {
+			if ss := s.try_take(2) {
 				if ss == '/=' {
 					s.add_pos(2)
 					return Token{
@@ -178,7 +178,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 		}
 	}
 	// Puncts
-	if ss := try_take(4) {
+	if ss := s.try_take(4) {
 		if ss == '>>>=' {
 			start := s.get_position()
 			s.add_pos(4)
@@ -188,7 +188,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 			}
 		}
 	}
-	if ss := try_take(3) {
+	if ss := s.try_take(3) {
 		if ss in keyword_list_3 {
 			start := s.get_position()
 			s.add_pos(3)
@@ -198,7 +198,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 			}
 		}
 	}
-	if ss := try_take(2) {
+	if ss := s.try_take(2) {
 		if ss in keyword_list_2 {
 			start := s.get_position()
 			s.add_pos(2)
@@ -208,7 +208,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 			}
 		}
 	}
-	if ss := try_take(1) {
+	if ss := s.try_take(1) {
 		if ss in keyword_list_1 {
 			start := s.get_position()
 			s.add_pos(1)
@@ -227,6 +227,9 @@ pub fn (mut s Scanner) scan_once() ?Token {
 		return s.scan_digit()
 	}
 	// Identifier
+	if is_id_start(s.text.at(s.pos)) {
+		return s.scan_ident()
+	}
 
 	return error(unexpected_token)
 }
