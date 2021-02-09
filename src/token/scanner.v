@@ -10,6 +10,7 @@ mut:
 	line int
 	lpos int
 	prev_term bool
+	is_strict bool
 }
 
 enum IEContext {
@@ -18,6 +19,9 @@ enum IEContext {
 
 const (
 	unexpected_token = 'Invalid or unexpected token'
+	invalid_hexadecimal = 'Invalid hexadecimal escape sequence'
+	invalid_unicode = 'Invalid Unicode escape sequence'
+	strict_octal = 'Octal escape sequences are not allowed in strict mode.'
 )
 
 [inline]
@@ -119,7 +123,112 @@ fn (mut s Scanner) skip_comment() ?bool {
 	return false
 }
 
-fn (mut s Scanner) scan_string() ?Token { return none }
+fn (mut s Scanner) scan_string(punct string) ?Token {
+	start_pos := s.pos
+	start_lpos := s.get_position()
+	for {
+		s.add_pos(1)
+		if ss := s.try_take(1) {
+			match ss {
+				punct {
+					s.add_pos(1)
+					return Token{
+						kind: s.text.substr(start_pos, s.pos),
+						position: s.get_location(start_lpos, s.get_position())
+					}
+				}
+				'\\' {
+					s.add_pos(1)
+					if esc := s.try_take(1) {
+						if is_terminator(esc) {
+							was_term := s.prev_term
+							skip_terminator()
+							s.prev_term = was_term
+						} else if esc[0].is_oct_digit() {
+							if s.is_strict && esc != '0' {
+								return error(strict_octal)
+							}
+							s.add_pos(1)
+							if second := s.try_take(1) {
+								if second[0].is_oct_digit() {
+									if s.is_strict {
+										return error(strict_octal)
+									}
+									s.add_pos(1)
+									if third := s.try_take(1) {
+										if third[0].is_oct_digit() {
+											s.add_pos(1)
+										}
+									}
+								}
+							} else {
+								return error(unexpected_token)
+							}
+						} else if esc == 'u' {
+							s.add_pos(1)
+							if hex_first := try_take(1) {
+								if hex_first == '{' {
+									mut has_hex := false
+									for {
+										if hex := try_take(1) {
+											if hex == '}' {
+												if !has_hex {
+													return error(invalid_unicode)
+												}
+												s.add_pos(1)
+												break
+											}
+											has_hex = true
+											if !hex[0].is_hex_digit() {
+												return error(invalid_unicode)
+											}
+											s.add_pos(1)
+										} else {
+											return error(invalid_unicode)
+										}
+									}
+								} else {
+									if hex := try_take(4) {
+										if !hex[0].is_hex_digit() || !hex[1].is_hex_digit()
+										|| !hex[2].is_hex_digit() || !hex[3].is_hex_digit() {
+											return error(invalid_unicode)
+										}
+										s.add_pos(4)
+									} else {
+										return error(invalid_unicode)
+									}
+								}
+							}
+						} else if esc == 'x' {
+							s.add_pos(1)
+							if hex := try_take(2) {
+								if !hex[0].is_hex_digit() || !hex[1].is_hex_digit() {
+									return error(invalid_hexadecimal)
+								}
+								s.add_pos(2)
+							} else {
+								return error(invalid_hexadecimal)
+							}
+						} else {
+							s.add_pos(1)
+						}
+					} else {
+						return error(unexpected_token)
+					}
+				}
+				'\n', '\r' {
+					return error(unexpected_token)
+				}
+				else {
+					s.add_pos(1)
+				}
+			}
+		} else {
+			return error(unexpected_token)
+		}
+	}
+	return error(unexpected_token)
+}
 
 fn (mut s Scanner) scan_digit() ?Token { return none }
 
@@ -219,8 +328,8 @@ pub fn (mut s Scanner) scan_once() ?Token {
 		}
 	}
 	// String
-	if s.text.at(s.pos) == '"' {
-		return s.scan_string()
+	if s.text.at(s.pos) in ['"', "'"] {
+		return s.scan_string(s.text.at(s.pos))
 	}
 	// Number
 	if s.text.at(s.pos)[0].is_digit() {
