@@ -126,8 +126,8 @@ fn (mut s Scanner) skip_comment() ?bool {
 fn (mut s Scanner) scan_string(punct string) ?Token {
 	start_pos := s.pos
 	start_lpos := s.get_position()
+	s.add_pos(1)
 	for {
-		s.add_pos(1)
 		if ss := s.try_take(1) {
 			match ss {
 				punct {
@@ -232,7 +232,26 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 
 fn (mut s Scanner) scan_digit() ?Token { return none }
 
-fn (mut s Scanner) scan_ident() ?Token { return none }
+fn (mut s Scanner) scan_ident() ?Token {
+	start_pos := s.pos
+	start_lpos := s.get_position()
+	for {
+		if id := try_take(1) {
+			if !is_id_continue(id) {
+				return Token{
+					kind: Identifier{name: s.text.substr(start_pos, s.pos)},
+					position: s.get_location(start_lpos, s.get_position())
+				}
+			}
+			s.add_pos(1)
+		} else {
+			return Token{
+				kind: Identifier{name: s.text.substr(start_pos, s.pos)},
+				position: s.get_location(start_lpos, s.get_position())
+			}
+		}
+	}
+}
 
 pub fn (mut s Scanner) scan_once() ?Token {
 	// skip ws and term and comment
