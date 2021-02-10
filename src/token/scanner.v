@@ -25,6 +25,8 @@ const (
 	invalid_unicode = 'Invalid Unicode escape sequence'
 	strict_octal = 'Octal escape sequences are not allowed in strict mode.'
 	octal_not_allowed = 'Octal literals are not allowed in strict mode.'
+	missing_slash = 'Invalid regular expression: missing /'
+	invalid_flags = 'Invalid regular expression flags'
 )
 
 [inline]
@@ -124,6 +126,89 @@ fn (mut s Scanner) skip_comment() ?bool {
 		return true
 	}
 	return false
+}
+
+fn (mut s Scanner) scan_regexp() ?Token {
+	start_lpos := s.get_position()
+	s.add_pos()
+	start_pos := s.pos
+	for {
+		if ss := s.try_take(1) {
+			if ss == '/' {
+				break
+			}
+			if is_terminator(ss) {
+				return error(missing_slash)
+			}
+			if ss == '\\' {
+				s.add_pos(1)
+				if follow := s.try_take(1) {
+					if is_terminator(follow) {
+						return error(missing_slash)
+					}
+					s.add_pos(1)
+				} else {
+					return error(missing_slash)
+				}
+			} else if ss == '[' {
+				for {
+					if clazz := s.try_take(1) {
+						if clazz == ']' {
+							s.add_pos(1)
+							break
+						}
+						if is_terminator(clazz) {
+							return error(missing_slash)
+						}
+						if clazz == '\\' {
+							s.add_pos(1)
+							if follow := s.try_take(1) {
+								if is_terminator(follow) {
+									return error(missing_slash)
+								}
+								s.add_pos(1)
+							} else {
+								return error(missing_slash)
+							}
+						} else {
+							s.add_pos(1)
+						}
+					} else {
+						return error(missing_slash)
+					}
+				}
+			} else {
+				s.add_pos(1)
+			}
+		} else {
+			return error(missing_slash)
+		}
+	}
+	pattern := s.text.substr(start_pos, s.pos)
+	s.add_pos(1)
+	mut flag_left := ['g', 'i', 'm', 's', 'u', 'y']
+	mut flags := ''
+	for {
+		if flag := s.try_take(1) {
+			if flag == '\\' {
+				return error(invalid_flags)
+			}
+			if !is_id_continue(flag) {
+				break
+			}
+			if flag !in flag_left {
+				return error(invalid_flags)
+			}
+			flags += flag
+			flag_left.delete(flag_left.index(flag))
+		} else {
+			break
+		}
+	}
+	return Token{
+		kind: RegExp{pattern: pattern, flags: flags},
+		position: s.get_location(start_lpos, s.get_location())
+	}
 }
 
 fn (mut s Scanner) scan_string(punct string) ?Token {
@@ -549,7 +634,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 			}
 		} else {
 			// RegExp
-			// TODO
+			return s.scan_regexp()
 		}
 	}
 	// Float like .1
