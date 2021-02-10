@@ -4,7 +4,7 @@ import strconv
 
 pub struct Scanner {
 	buffer []Token
-	file_name ?string
+	file_name string  // should be optional
 	text ustring
 mut:
 	context IEContext
@@ -77,8 +77,8 @@ fn (mut s Scanner) skip_whitespace() {
 
 fn (mut s Scanner) skip_terminator() {
 	if s.text.at(s.pos) == '\r' {
-		if ss := s.try_take(1) {
-			if ss == '\n' {
+		if ss := s.try_take(2) {
+			if ss == '\r\n' {
 				s.pos++
 			}
 		}
@@ -111,6 +111,7 @@ fn (mut s Scanner) skip_comment() ?bool {
 				for {
 					if ss := s.try_take(2) {
 						if ss == '*/' {
+							s.add_pos(2)
 							break
 						} else if is_terminator(s.text.at(s.pos)) {
 							s.skip_terminator()
@@ -130,7 +131,7 @@ fn (mut s Scanner) skip_comment() ?bool {
 
 fn (mut s Scanner) scan_regexp() ?Token {
 	start_lpos := s.get_position()
-	s.add_pos()
+	s.add_pos(1)
 	start_pos := s.pos
 	for {
 		if ss := s.try_take(1) {
@@ -207,7 +208,7 @@ fn (mut s Scanner) scan_regexp() ?Token {
 	}
 	return Token{
 		kind: RegExp{pattern: pattern, flags: flags},
-		position: s.get_location(start_lpos, s.get_location())
+		position: s.get_location(start_lpos, s.get_position())
 	}
 }
 
