@@ -233,7 +233,6 @@ fn (mut s Scanner) scan_string(punct string) ?Token {
 	return error(unexpected_token)
 }
 
-// TODO do not allow 1hoge
 fn (mut s Scanner) scan_digit() ?Token {
 	start_pos := s.pos
 	start_lpos := s.get_position()
@@ -365,28 +364,134 @@ fn (mut s Scanner) scan_digit() ?Token {
 		}
 	}
 	ret_num = s.text.substr(start_pos, s.pos).f64()
-	finally: return Token{
+	finally:
+	if follow := s.try_take(1) {
+		if is_id_start(follow) {
+			return error(unexpected_token)
+		}
+	}
+	return Token{
 		kind: ret_num,
 		position: s.get_location(start_lpos, s.get_position())
 	}
 }
 
-// TODO escape sequence
 fn (mut s Scanner) scan_ident() ?Token {
-	start_pos := s.pos
+	mut name := ''
 	start_lpos := s.get_position()
+	if s.text.at(s.pos) == '\\' {
+		s.add_pos(1)
+		if ss := s.try_take(1) {
+			if ss != 'u' {
+				return error(unexpected_token)
+			}
+			s.add_pos(1)
+			if follow := s.try_take(1) {
+				if follow == '{' {
+					mut has_hex := false
+					mut code := ''
+					for {
+						if hex := s.try_take(1) {
+							if hex == '}' {
+								if !has_hex {
+									return error(invalid_unicode)
+								}
+								s.add_pos(1)
+								break
+							}
+							has_hex = true
+							if !hex[0].is_hex_digit() {
+								return error(invalid_unicode)
+							}
+							code += hex
+							s.add_pos(1)
+						} else {
+							return error(invalid_unicode)
+						}
+					}
+					name += utf32_to_str(u32(strconv.parse_int(code, 16, 0)))
+				} else {
+					if code := s.try_take(4) {
+						if !code[0].is_hex_digit() || !code[1].is_hex_digit()
+						|| !code[2].is_hex_digit() || !code[3].is_hex_digit() {
+							return error(invalid_unicode)
+						}
+						name += utf32_to_str(u32(strconv.parse_int(code, 16, 0)))
+					} else {
+						return error(invalid_unicode)
+					}
+				}
+			} else {
+				return error(invalid_unicode)
+			}
+		} else {
+			return error(unexpected_token)
+		}
+	} else {
+		name += s.text.at(s.pos)
+		s.add_pos(1)
+	}
 	for {
 		if id := s.try_take(1) {
-			if !is_id_continue(id) {
+			if id == '\\' {
+				s.add_pos(1)
+				if ss := s.try_take(1) {
+					if ss != 'u' {
+						return error(unexpected_token)
+					}
+					s.add_pos(1)
+					if follow := s.try_take(1) {
+						if follow == '{' {
+							mut has_hex := false
+							mut code := ''
+							for {
+								if hex := s.try_take(1) {
+									if hex == '}' {
+										if !has_hex {
+											return error(invalid_unicode)
+										}
+										s.add_pos(1)
+										break
+									}
+									has_hex = true
+									if !hex[0].is_hex_digit() {
+										return error(invalid_unicode)
+									}
+									code += hex
+									s.add_pos(1)
+								} else {
+									return error(invalid_unicode)
+								}
+							}
+							name += utf32_to_str(u32(strconv.parse_int(code, 16, 0)))
+						} else {
+							if code := s.try_take(4) {
+								if !code[0].is_hex_digit() || !code[1].is_hex_digit()
+								|| !code[2].is_hex_digit() || !code[3].is_hex_digit() {
+									return error(invalid_unicode)
+								}
+								name += utf32_to_str(u32(strconv.parse_int(code, 16, 0)))
+							} else {
+								return error(invalid_unicode)
+							}
+						}
+					} else {
+						return error(invalid_unicode)
+					}
+				} else {
+					return error(unexpected_token)
+				}
+			} else if !is_id_continue(id) {
 				return Token{
-					kind: Identifier{name: s.text.substr(start_pos, s.pos)},
+					kind: Identifier{name: name},
 					position: s.get_location(start_lpos, s.get_position())
 				}
 			}
+			name += id
 			s.add_pos(1)
 		} else {
 			return Token{
-				kind: Identifier{name: s.text.substr(start_pos, s.pos)},
+				kind: Identifier{name: name},
 				position: s.get_location(start_lpos, s.get_position())
 			}
 		}
@@ -505,7 +610,7 @@ pub fn (mut s Scanner) scan_once() ?Token {
 		return s.scan_digit()
 	}
 	// Identifier
-	if is_id_start(s.text.at(s.pos)) {
+	if is_id_start(s.text.at(s.pos)) || s.text.at(s.pos) == '\\' {
 		return s.scan_ident()
 	}
 
