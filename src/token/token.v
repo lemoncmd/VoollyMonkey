@@ -65,18 +65,25 @@ pub enum Keyword {
 	period
 
 	// Statements
+	key_await
 	key_break
 	key_case
 	key_catch
+	key_class
+	key_const
 	key_continue
 	key_debugger
 	key_default
 	key_do
 	key_else
+	key_enum
+	key_export
+	key_extends
 	key_finally
 	key_for
 	key_function
 	key_if
+	key_import
 	key_new
 	key_return
 	key_switch
@@ -85,6 +92,7 @@ pub enum Keyword {
 	key_var
 	key_while
 	key_with
+	key_yield
 	key_this
 	key_super
 
@@ -153,26 +161,34 @@ const keyword_to_str = [
 	'.',//	period
 	//
 	//	// Statements
-	'break',//	brek
+	'await',//	await
+	'break',//	break
 	'case',//	case
 	'catch',//	catch
-	'continue',//	cont
-	'debugger',//	debug
-	'default',//	deflt
-	'do',//	doo
-	'else',//	els
-	'finally',//	final
-	'for',//	forr
-	'function',//	func
-	'if',//	iff
+	'class',//	class
+	'const',//	const
+	'continue',//	continue
+	'debugger',//	debugger
+	'default',//	default
+	'do',//	do
+	'else',//	else
+	'enum',//	enum
+	'export',//	export
+	'extends',//	extends
+	'finally',//	finally
+	'for',//	for
+	'function',//	function
+	'if',//	if
+	'import',//	import
 	'new',//	new
-	'return',//	ret
-	'switch',//	swit
+	'return',//	return
+	'switch',//	switch
 	'throw',//	throw
 	'try',//	try
 	'var',//	var
-	'while',//	whil
+	'while',//	while
 	'with',//	with
+	'yield',//	yield
 	'this',//	this
 	'super',//	super
 	//
@@ -190,6 +206,7 @@ pub struct RegExp {
 pub struct EOF {}
 
 pub struct Token {
+pub:
 	position SourceLocation
 	kind TokenKind
 }
@@ -221,6 +238,17 @@ const keyword_list_2 = (fn()[]string{
 const keyword_list_3 = (fn()[]string{
 	return keyword_list_sign.filter(it.len == 3)
 }())
+
+pub fn (kind TokenKind) str() string {
+	return match kind {
+		Identifier {'id: $kind.name'}
+		Keyword {keyword_to_str[int(kind)]}
+		f64 {kind.str()}
+		string {kind}
+		RegExp {'/$kind.pattern/$kind.flags'}
+		EOF {'EOF'}
+	}
+}
 
 pub fn get_priority(key Keyword) ?int {
 	priority := match key {

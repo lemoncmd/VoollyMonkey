@@ -568,6 +568,12 @@ fn (mut s Scanner) scan_ident() ?Token {
 					return error(unexpected_token)
 				}
 			} else if !is_id_continue(id) {
+				if name in keyword_list_word {
+					return Token {
+						kind: keyword_to_enum[name],
+						position: s.get_location(start_lpos, s.get_position())
+					}
+				}
 				return Token{
 					kind: Identifier{name: name},
 					position: s.get_location(start_lpos, s.get_position())
@@ -576,6 +582,12 @@ fn (mut s Scanner) scan_ident() ?Token {
 			name += id
 			s.add_pos(1)
 		} else {
+			if name in keyword_list_word {
+				return Token {
+					kind: keyword_to_enum[name],
+					position: s.get_location(start_lpos, s.get_position())
+				}
+			}
 			return Token{
 				kind: Identifier{name: name},
 				position: s.get_location(start_lpos, s.get_position())
