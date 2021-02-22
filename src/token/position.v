@@ -1,7 +1,7 @@
 module token
 
 struct SourceLocation {
-	source string  //should be optional
+	source ?string
 	start Position
 	end Position
 }

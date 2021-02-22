@@ -1,6 +1,6 @@
 module main
 
-//import ast
+import ast
 import token
 
 fn main() {

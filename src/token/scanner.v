@@ -4,7 +4,7 @@ import strconv
 
 pub struct Scanner {
 	buffer []Token
-	file_name string  // should be optional
+	file_name ?string
 	text ustring
 mut:
 	context IEContext
@@ -323,134 +323,135 @@ fn (mut s Scanner) scan_digit() ?Token {
 	start_pos := s.pos
 	start_lpos := s.get_position()
 	mut ret_num := f64(0)
-	if s.text.at(s.pos) == '0' {
-		s.add_pos(1)
-		if ss := s.try_take(1) {
-			match ss {
-				'x', 'X' {
-					s.add_pos(1)
-					mut had_number := false
-					for {
-						if follow := s.try_take(1) {
-							if !follow[0].is_hex_digit() {
+	finally: for {
+		if s.text.at(s.pos) == '0' {
+			s.add_pos(1)
+			if ss := s.try_take(1) {
+				match ss {
+					'x', 'X' {
+						s.add_pos(1)
+						mut had_number := false
+						for {
+							if follow := s.try_take(1) {
+								if !follow[0].is_hex_digit() {
+									break
+								}
+								s.add_pos(1)
+								had_number = true
+							} else {
 								break
 							}
-							s.add_pos(1)
-							had_number = true
-						} else {
-							break
 						}
+						if !had_number {
+							return error(unexpected_token)
+						}
+						ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 16, 0))
+						break finally
 					}
-					if !had_number {
-						return error(unexpected_token)
-					}
-					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 16, 0))
-					goto finally
-				}
-				'o', 'O' {
-					s.add_pos(1)
-					mut had_number := false
-					for {
-						if follow := s.try_take(1) {
-							if !follow[0].is_oct_digit() {
+					'o', 'O' {
+						s.add_pos(1)
+						mut had_number := false
+						for {
+							if follow := s.try_take(1) {
+								if !follow[0].is_oct_digit() {
+									break
+								}
+								s.add_pos(1)
+								had_number = true
+							} else {
 								break
 							}
-							s.add_pos(1)
-							had_number = true
-						} else {
-							break
 						}
+						if !had_number {
+							return error(unexpected_token)
+						}
+						ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 8, 0))
+						break finally
 					}
-					if !had_number {
-						return error(unexpected_token)
-					}
-					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 8, 0))
-					goto finally
-				}
-				'b', 'B' {
-					s.add_pos(1)
-					mut had_number := false
-					for {
-						if follow := s.try_take(1) {
-							if follow !in ['0', '1'] {
+					'b', 'B' {
+						s.add_pos(1)
+						mut had_number := false
+						for {
+							if follow := s.try_take(1) {
+								if follow !in ['0', '1'] {
+									break
+								}
+								s.add_pos(1)
+								had_number = true
+							} else {
 								break
 							}
-							s.add_pos(1)
-							had_number = true
-						} else {
-							break
 						}
+						if !had_number {
+							return error(unexpected_token)
+						}
+						ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 2, 0))
+						break finally
 					}
-					if !had_number {
-						return error(unexpected_token)
-					}
-					ret_num = f64(strconv.parse_int(s.text.substr(start_pos + 2, s.pos), 2, 0))
-					goto finally
+					else {}
 				}
-				else {}
 			}
 		}
-	}
-	for {
-		if ss := s.try_take(1) {
-			if !ss[0].is_digit() {
+		for {
+			if ss := s.try_take(1) {
+				if !ss[0].is_digit() {
+					break
+				}
+				s.add_pos(1)
+			} else {
 				break
 			}
-			s.add_pos(1)
-		} else {
-			break
 		}
-	}
-	num_base := s.text.substr(start_pos, s.pos)
-	if num_base.len != 0 && num_base[0] == `0` && !num_base.contains_any('89') {
-		if num_base != '0' && s.is_strict {
-			return error(octal_not_allowed)
+		num_base := s.text.substr(start_pos, s.pos)
+		if num_base.len != 0 && num_base[0] == `0` && !num_base.contains_any('89') {
+			if num_base != '0' && s.is_strict {
+				return error(octal_not_allowed)
+			}
+			ret_num = f64(strconv.parse_int(s.text.substr(start_pos, s.pos), 8, 0))
+			break finally
 		}
-		ret_num = f64(strconv.parse_int(s.text.substr(start_pos, s.pos), 8, 0))
-		goto finally
-	}
-	if ss := s.try_take(1) {
-		if ss == '.' {
-			s.add_pos(1)
-			for {
-				if follow := s.try_take(1) {
-					if !follow[0].is_digit() {
+		if ss := s.try_take(1) {
+			if ss == '.' {
+				s.add_pos(1)
+				for {
+					if follow := s.try_take(1) {
+						if !follow[0].is_digit() {
+							break
+						}
+						s.add_pos(1)
+					} else {
 						break
 					}
-					s.add_pos(1)
-				} else {
-					break
 				}
 			}
 		}
-	}
-	if ss := s.try_take(1) {
-		if ss == 'e' {
-			s.add_pos(1)
-			if prefix := s.try_take(1) {
-				if prefix in ['+', '-'] {
-					s.add_pos(1)
+		if ss := s.try_take(1) {
+			if ss == 'e' {
+				s.add_pos(1)
+				if prefix := s.try_take(1) {
+					if prefix in ['+', '-'] {
+						s.add_pos(1)
+					}
 				}
-			}
-			mut had_number := false
-			for {
-				if follow := s.try_take(1) {
-					if !follow[0].is_digit() {
+				mut had_number := false
+				for {
+					if follow := s.try_take(1) {
+						if !follow[0].is_digit() {
+							break
+						}
+						s.add_pos(1)
+						had_number = true
+					} else {
 						break
 					}
-					s.add_pos(1)
-					had_number = true
-				} else {
-					break
+				}
+				if !had_number {
+					return error(unexpected_token)
 				}
 			}
-			if !had_number {
-				return error(unexpected_token)
-			}
 		}
+		ret_num = s.text.substr(start_pos, s.pos).f64()
 	}
-	ret_num = s.text.substr(start_pos, s.pos).f64()
-	finally:
 	if follow := s.try_take(1) {
 		if is_id_start(follow) {
 			return error(unexpected_token)
