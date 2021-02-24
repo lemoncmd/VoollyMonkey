@@ -3,7 +3,6 @@ module token
 import strconv
 
 pub struct Scanner {
-	buffer []Token
 	file_name ?string
 	text ustring
 mut:
@@ -17,6 +16,22 @@ mut:
 
 enum IEContext {
 	div regexp
+}
+
+pub fn new_scanner_text(text ustring) &Scanner {
+	return &Scanner{
+		text: text,
+		context: .regexp,
+		pos: 0,
+		line: 1,
+		lpos: 0,
+		prev_term: false,
+		is_strict: false,
+	}
+}
+
+pub fn (mut s Scanner) switch_context(context IEContext) {
+	s.context = context
 }
 
 const (

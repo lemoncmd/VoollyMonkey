@@ -2,6 +2,7 @@ module main
 
 import ast
 import token
+import parser
 
 fn main() {
 	mut hoge := token.Scanner {

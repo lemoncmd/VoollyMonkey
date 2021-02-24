@@ -3,6 +3,7 @@ module token
 pub type TokenKind = Identifier | Keyword | f64 | string | RegExp | EOF
 
 pub struct Identifier {
+pub:
 	name string
 }
 
@@ -102,6 +103,10 @@ pub enum Keyword {
 	key_false
 }
 
+pub fn (k Keyword) str() string {
+	return keyword_to_str[int(k)]
+}
+
 const keyword_to_str = [
 	//	// Operators
 	'||',//	lor
@@ -199,6 +204,7 @@ const keyword_to_str = [
 ]
 
 pub struct RegExp {
+pub:
 	pattern string
 	flags string
 }

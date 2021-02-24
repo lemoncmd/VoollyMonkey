@@ -4,31 +4,28 @@ import token
 
 // Node Objects
 
-struct Node {
-	loc ?token.SourceLocation
-	body NodeBody
-}
-
-type NodeBody = Program | Function | Statement | Directive | SwitchCase | CatchClause | VariableDeclarator | Expression | Property
+type Node = Program | Function | Statement | Directive | SwitchCase | CatchClause | VariableDeclarator | Expression | Property
 
 
 // Identifier
 
-struct Identifier {
+pub struct Identifier {
 	name string
+	loc token.SourceLocation
 }
 
 // Literal
 
-struct Literal {
+pub struct Literal {
 	value LiteralBody
+	loc token.SourceLocation
 }
 
 type LiteralBody = string | bool | Nulltype | f64 | RegExp
 
-struct Nulltype {}
+pub struct Nulltype {}
 
-struct RegExp {
+pub struct RegExp {
 	pattern string
 	flags string
 }
@@ -130,7 +127,7 @@ struct TryStatement {
 }
 
 struct CatchClause {
-	param Pattern
+	param Identifier// Pattern
 	body BlockStatement
 }
 
@@ -180,7 +177,7 @@ struct VariableDeclaration {
 enum VariableDeclarationKind { var }
 
 struct VariableDeclarator {
-	id Pattern
+	id Identifier// Pattern
 	init ?Expression
 }
 
@@ -191,7 +188,9 @@ FunctionExpression | UnaryExpression | UpdateExpression | Binaryexpression | Ass
 LogicalExpression | MemberExpression | ConditionalExpression | CallExpression | NewExpression |
 SequenceExpression
 
-struct ThisExpression {}
+pub struct ThisExpression {
+	loc token.SourceLocation
+}
 
 struct ArrayExpression {
 	elements ?Expression
