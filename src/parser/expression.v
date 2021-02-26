@@ -7,6 +7,10 @@ const (
 	unexpected_eof = 'Unexpected end of input'
 )
 
+pub fn (mut p Parser) parse_expression() ?ast.Expression {
+	return p.parse_primary()
+}
+
 pub fn (mut p Parser) parse_primary() ?ast.Expression {
 	p.scanner.switch_context(.regexp)
 	tok := p.scanner.scan_once()?

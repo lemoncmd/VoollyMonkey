@@ -10,8 +10,9 @@ mut:
 	pos int
 	line int
 	lpos int
-	prev_term bool
 	is_strict bool
+pub mut:
+	prev_term bool
 }
 
 enum IEContext {
